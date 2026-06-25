@@ -34,4 +34,14 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+const authorizeUser= async (req,res,next)=>{
+  const reqName= decodeURIComponent(req.params.name);
+  if(req.user && req.user.username === reqName){
+    return next()
+  }
+  return res.status(403).json({
+    success:false,
+    message:'Access denied . You can only view your own macthes'
+  })
+}
+module.exports = { protect, authorizeUser };
