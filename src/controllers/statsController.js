@@ -12,7 +12,24 @@ const ballsToOvers = (balls) => {
 // @access  Private
 const getMatchDays = async (req, res) => {
   try {
-    const days = await Match.aggregate([
+    const { groupName } = req.query;
+
+    // Verify group membership if groupName is specified
+    if (groupName) {
+      const { verifyGroupMembership } = require('./groupController');
+      const membership = await verifyGroupMembership(req.user.username, groupName);
+      if (!membership.allowed) {
+        return res.status(membership.status).json({ success: false, message: membership.message });
+      }
+    }
+
+    const pipeline = [];
+
+    if (groupName) {
+      pipeline.push({ $match: { groupName: groupName } });
+    }
+
+    pipeline.push(
       {
         $group: {
           _id: '$date',
@@ -28,8 +45,10 @@ const getMatchDays = async (req, res) => {
       },
       {
         $sort: { date: -1 },
-      },
-    ]);
+      }
+    );
+
+    const days = await Match.aggregate(pipeline);
 
     res.status(200).json(days);
   } catch (error) {
@@ -43,14 +62,27 @@ const getMatchDays = async (req, res) => {
 // @access  Private
 const getDayPerformers = async (req, res) => {
   try {
-    const { date } = req.query;
+    const { date, groupName } = req.query;
 
     if (!date) {
       return res.status(400).json({ success: false, message: 'Please provide a date parameter' });
     }
 
+    // Verify group membership if groupName is specified
+    if (groupName) {
+      const { verifyGroupMembership } = require('./groupController');
+      const membership = await verifyGroupMembership(req.user.username, groupName);
+      if (!membership.allowed) {
+        return res.status(membership.status).json({ success: false, message: membership.message });
+      }
+    }
+
     // Query matches played on this date
-    const matches = await Match.find({ date });
+    const query = { date };
+    if (groupName) {
+      query.groupName = groupName;
+    }
+    const matches = await Match.find(query);
 
     const batsmenMap = {};
     const bowlersMap = {};

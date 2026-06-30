@@ -62,6 +62,7 @@ const MatchSchema = new mongoose.Schema({
   date: { type: String, required: true }, // Format YYYY-MM-DD
   teamAName: { type: String, required: true },
   teamBName: { type: String, required: true },
+  groupName: { type: String, default: null },
   oversCount: { type: Number, required: true },
   playersPerTeam: { type: Number, required: true },
   winner: { type: String },

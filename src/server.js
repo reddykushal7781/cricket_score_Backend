@@ -6,6 +6,7 @@ const authRoutes = require('./routes/authRoutes');
 const playerRoutes = require('./routes/playerRoutes');
 const matchRoutes = require('./routes/matchRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 // Connect to Database
 connectDB();
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/groups', groupRoutes);
 
 // Simple Health Check Route
 app.get('/api/health', (req, res) => {

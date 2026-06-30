@@ -44,9 +44,31 @@ const publishMatch = async (req, res) => {
   try {
     const matchData = req.body;
 
-    if (!matchData || !matchData.matchId || !matchData.date) {
-      return res.status(400).json({ success: false, message: 'Invalid match data payload' });
+    if (!matchData || !matchData.date) {
+      return res.status(400).json({ success: false, message: 'Invalid match data payload: date is required' });
     }
+
+    // Verify group membership if groupName is specified
+    if (matchData.groupName) {
+      const { verifyGroupMembership } = require('./groupController');
+      const membership = await verifyGroupMembership(req.user.username, matchData.groupName);
+      if (!membership.allowed) {
+        return res.status(membership.status).json({ success: false, message: membership.message });
+      }
+    }
+
+    // Generate a unique random matchId (6-digit integer) on the backend
+    let isUnique = false;
+    let generatedMatchId;
+    while (!isUnique) {
+      generatedMatchId = Math.floor(100000 + Math.random() * 900000);
+      const existing = await Match.findOne({ matchId: generatedMatchId });
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    matchData.matchId = generatedMatchId;
+
 
     // Sanitize/normalize payload to prevent MongoDB validation/casting errors
     if (matchData.innings && Array.isArray(matchData.innings)) {
@@ -306,6 +328,16 @@ const publishMatch = async (req, res) => {
 const getPlayerMatches = async (req, res) => {
   try {
     const name = decodeURIComponent(req.params.name);
+    const { groupName } = req.query;
+
+    // Verify group membership if groupName is specified
+    if (groupName) {
+      const { verifyGroupMembership } = require('./groupController');
+      const membership = await verifyGroupMembership(req.user.username, groupName);
+      if (!membership.allowed) {
+        return res.status(membership.status).json({ success: false, message: membership.message });
+      }
+    }
 
     // Find player first to resolve name & username
     const player = await Player.findOne({
@@ -320,14 +352,20 @@ const getPlayerMatches = async (req, res) => {
     }
 
     // Search all matches where this player participated (batting scorecard or bowling scorecard)
-    const matches = await Match.find({
+    const query = {
       $or: [
         { 'innings.battingScorecard.name': player.name },
         { 'innings.bowlingScorecard.name': player.name },
         { 'innings.battingScorecard.name': player.username },
         { 'innings.bowlingScorecard.name': player.username },
       ],
-    }).sort({ date: -1 });
+    };
+
+    if (groupName) {
+      query.groupName = groupName;
+    }
+
+    const matches = await Match.find(query).sort({ date: -1 });
 
     // Map match items to include basic details and the specific player's match performance
     const formattedMatches = matches.map((match) => {
